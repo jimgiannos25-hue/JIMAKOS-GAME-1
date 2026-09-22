@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<title>JIMAKOS GAME 1 — San Andreas Inspired 3D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#0b1720;font-family:Arial,sans-serif}
+canvas{display:block}
+#hud{position:fixed;z-index:20;left:18px;top:16px;color:#fff;background:#050505b8;padding:12px 16px;border-radius:13px;text-shadow:0 1px 2px #000}
+#hud b{font-size:21px}
+#help{position:fixed;z-index:20;bottom:15px;left:50%;transform:translateX(-50%);padding:10px 16px;background:#050505aa;color:#fff;border-radius:10px}
+</style>
+</head>
+<body>
+<div id="hud"><b>JIMAKOS GAME 1</b><br>💵 $1,000 &nbsp; ⭐ 0<br><span id="state">Περιήγηση</span></div>
+<div id="help">WASD κίνηση • Shift τρέξιμο • E αυτοκίνητο • Mouse κάμερα</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.min.js"></script>
+<script>
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x8bc9ef);
+scene.fog=new THREE.FogExp2(0x8bc9ef,.0017);
+const camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.1,1200);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xdff5ff,0x4e3d2f,2.1));
+const sun=new THREE.DirectionalLight(0xfff4d8,3.2);
+sun.position.set(-180,240,120);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-300;sun.shadow.camera.right=300;
+sun.shadow.camera.top=300;sun.shadow.camera.bottom=-300;scene.add(sun);
+
+const M=(c,r=.78,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const worldMat=M(0x5b8e58);
+const roadMat=M(0x202428);
+const concrete=M(0x7d8082);
+const windowMat=new THREE.MeshStandardMaterial({color:0x8ec7dc,roughness:.25,metalness:.12});
+function cube(s,p,mat,shadow=true){
+ const o=new THREE.Mesh(new THREE.BoxGeometry(...s),mat);
+ o.position.set(...p);o.castShadow=shadow;o.receiveShadow=true;scene.add(o);return o;
+}
+
+// terrain
+cube([850,2,850],[0,-1,0],worldMat,false);
+cube([180,1,850],[330,-.5,0],M(0xc8a66b),false);
+const ocean=new THREE.Mesh(new THREE.PlaneGeometry(210,850),new THREE.MeshStandardMaterial({color:0x238dc5,roughness:.18,metalness:.05}));
+ocean.rotation.x=-Math.PI/2;ocean.position.set(-335,.1,0);scene.add(ocean);
+
+// major roads
+for(let p=-300;p<=300;p+=60)cube([14,.12,720],[p,.04,0],roadMat,false);
+for(let p=-300;p<=300;p+=60)cube([720,.12,14],[0,.05,p],roadMat,false);
+// sidewalks
+for(let p=-300;p<=300;p+=60){cube([4,.18,720],[p-9,.12,0],concrete,false);cube([4,.18,720],[p+9,.12,0],concrete,false)}
+for(let p=-300;p<=300;p+=60){cube([720,.18,4],[0,.12,p-9],concrete,false);cube([720,.18,4],[0,.12,p+9],concrete,false)}
+// lane stripes
+const stripe=M(0xe6db9c);
+for(let p=-300;p<=300;p+=60)for(let z=-330;z<330;z+=28)cube([.65,.16,11],[p,.16,z],stripe,false);
+for(let p=-300;p<=300;p+=60)for(let x=-330;x<330;x+=28)cube([11,.16,.65],[x,.17,p],stripe,false);
+
+// buildings with varied silhouettes and rooftop details
+const facade=[0x69747b,0x8f786b,0x667d88,0x7c8077,0x9b9b99,0x5d6871];
+for(let x=-320;x<=320;x+=22){
+ for(let z=-320;z<=320;z+=22){
+  if(Math.abs(x%60)<12||Math.abs(z%60)<12)continue;
+  let h=8+Math.random()*58;
+  let w=14+Math.random()*4;
+  let b=cube([w,h,w],[x,h/2,z],M(facade[(Math.random()*facade.length)|0]));
+  // windows on front and side
+  const rows=Math.max(2,Math.floor(h/5));
+  for(let y=4;y<h-2;y+=5){
+   for(let xx=-4;xx<=4;xx+=4){
+    let win=new THREE.Mesh(new THREE.BoxGeometry(1.35,1.4,.12),windowMat);
+    win.position.set(x+xx,y,z-w/2-.07);scene.add(win);
+   }
+  }
+  if(h>35){
+   cube([w*.45,2,w*.45],[x,h+1,z],M(0x50555a));
+  }
+ }
+}
+// landmarks / towers
+cube([34,115,34],[-55,57.5,-110],M(0x536a7b));
+cube([30,90,30],[45,45,-145],M(0x64747e));
+cube([36,130,36],[105,65,-60],M(0x68727a));
+
+// beach
+cube([35,.3,850],[-185,.2,0],M(0xe1cd99),false);
+// palm trees
+for(let i=0;i<28;i++){
+ let x=-165+Math.random()*45,z=-330+Math.random()*660;
+ cube([1.4,7,1.4],[x,3.5,z],M(0x6b472c));
+ let crown=new THREE.Mesh(new THREE.SphereGeometry(3.7,12,9),M(0x287447));
+ crown.position.set(x,7.5,z);crown.castShadow=true;scene.add(crown);
+}
+
+// 3D Jimakos
+const jim=new THREE.Group();
+const skin=M(0xc88868), shirt=M(0x252a30), pants=M(0x252a31), shoe=M(0x111214), hair=M(0x211917);
+function part(g,ma,p){let o=new THREE.Mesh(g,ma);o.position.set(...p);o.castShadow=true;o.receiveShadow=true;jim.add(o);return o}
+part(new THREE.CylinderGeometry(.28,.32,.48,16),skin,[0,2.48,0]);
+part(new THREE.SphereGeometry(.42,24,18),skin,[0,3.02,0]);
+part(new THREE.SphereGeometry(.43,24,10,0,Math.PI*2,0,Math.PI*.55),hair,[0,3.13,0]);
+part(new THREE.BoxGeometry(.95,1.22,.52),shirt,[0,1.86,0]);
+const LA=part(new THREE.CapsuleGeometry(.13,.66,8,12),shirt,[-.61,1.98,0]);
+const RA=part(new THREE.CapsuleGeometry(.13,.66,8,12),shirt,[.61,1.98,0]);
+part(new THREE.SphereGeometry(.14,12,8),skin,[-.67,1.52,0]);
+part(new THREE.SphereGeometry(.14,12,8),skin,[.67,1.52,0]);
+const LL=part(new THREE.CapsuleGeometry(.17,.82,8,12),pants,[-.24,.92,0]);
+const RL=part(new THREE.CapsuleGeometry(.17,.82,8,12),pants,[.24,.92,0]);
+part(new THREE.BoxGeometry(.3,.16,.58),shoe,[-.24,.25,-.08]);
+part(new THREE.BoxGeometry(.3,.16,.58),shoe,[.24,.25,-.08]);
+jim.position.set(0,0,25);scene.add(jim);
+
+// car
+const car=new THREE.Group();
+function cp(g,m,p){let o=new THREE.Mesh(g,m);o.position.set(...p);o.castShadow=true;o.receiveShadow=true;car.add(o);return o}
+cp(new THREE.BoxGeometry(3.6,.92,5.7),M(0xa91f2b,.38,.1),[0,1,0]);
+cp(new THREE.BoxGeometry(2.7,1.1,2.75),new THREE.MeshStandardMaterial({color:0x9dcfdf,roughness:.18,metalness:.15,transparent:true,opacity:.9}),[0,1.75,-.25]);
+const rubber=M(0x101113,.65);
+for(const xx of [-1.68,1.68])for(const zz of [-1.85,1.85]){let w=cp(new THREE.CylinderGeometry(.5,.5,.38,20),rubber,[xx,.5,zz]);w.rotation.z=Math.PI/2}
+car.position.set(9,0,25);scene.add(car);
+
+// NPCs
+const npcs=[];
+for(let i=0;i<18;i++){
+ let g=new THREE.Group();
+ const sm=M([0x284f78,0x5b3828,0x6b6b26,0x8a3944][i%4]);
+ let torso=new THREE.Mesh(new THREE.BoxGeometry(.7,1.05,.4),sm);torso.position.y=1.55;g.add(torso);
+ let hd=new THREE.Mesh(new THREE.SphereGeometry(.29,16,12),skin);hd.position.y=2.35;g.add(hd);
+ for(let side of [-1,1]){
+  let arm=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.48,6,8),sm);arm.position.set(side*.45,1.55,0);g.add(arm);
+  let leg=new THREE.Mesh(new THREE.CapsuleGeometry(.11,.65,6,8),pants);leg.position.set(side*.16,.65,0);g.add(leg);
+ }
+ g.position.set(-140+Math.random()*300,0,-260+Math.random()*500);g.userData.phase=Math.random()*6.28;scene.add(g);npcs.push(g);
+}
+
+// controls
+const keys={};addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+let driving=false,yaw=0,pitch=.2,last=performance.now(),walk=0,drag=false,lx=0,ly=0;
+renderer.domElement.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY});
+addEventListener('mouseup',()=>drag=false);
+addEventListener('mousemove',e=>{if(!drag)return;yaw-=(e.clientX-lx)*.004;pitch+=(e.clientY-ly)*.003;pitch=Math.max(-.15,Math.min(.6,pitch));lx=e.clientX;ly=e.clientY});
+addEventListener('keydown',e=>{if(e.key.toLowerCase()==='e'){if(!driving&&jim.position.distanceTo(car.position)<7){driving=true;jim.visible=false;document.getElementById('state').textContent='Οδήγηση'}else if(driving){driving=false;jim.visible=true;jim.position.copy(car.position);jim.position.x+=3;document.getElementById('state').textContent='Περιήγηση'}}});
+
+function animate(now){
+ requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.05);last=now;
+ const speed=keys.shift?10:5;
+ const f=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0);
+ const r=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+ if(driving){
+  car.rotation.y-=r*dt*1.7;
+  car.position.x+=Math.sin(car.rotation.y)*f*speed*1.9*dt;
+  car.position.z+=Math.cos(car.rotation.y)*f*speed*1.9*dt;
+ }else if(f||r){
+  let d=new THREE.Vector3(r,0,f).normalize().multiplyScalar(speed*dt);
+  jim.position.add(d);jim.rotation.y=Math.atan2(r,f);walk+=dt*(keys.shift?10:7);
+  const s=Math.sin(walk)*.5;
+  LL.rotation.x=s;RL.rotation.x=-s;LA.rotation.x=-s*.8;RA.rotation.x=s*.8;
+ }
+ // NPC strolling
+ npcs.forEach(n=>{n.position.x+=Math.sin(now*.0003+n.userData.phase)*.018;n.rotation.y=Math.sin(now*.00025+n.userData.phase)*.25});
+ const target=driving?car.position:jim.position,dist=driving?12:9;
+ camera.position.lerp(new THREE.Vector3(target.x-Math.sin(yaw)*dist,target.y+5.7+pitch*5,target.z-Math.cos(yaw)*dist),.08);
+ camera.lookAt(target.x,target.y+1.5,target.z);
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body></html>
